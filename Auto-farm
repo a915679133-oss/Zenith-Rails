@@ -1,0 +1,130 @@
+-- ==========================================
+-- ZENITH-DEADRAILS: AUTO-FARM BONDS
+-- ==========================================
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
+local LocalPlayer = Players.LocalPlayer
+
+_G.FarmActive = true
+_G.FlyHeight = 50 -- Высота полёта над рельсами
+
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+end)
+
+local function getRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+-- Отключение коллизии (Noclip)
+local function disableCollision()
+    if LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end
+
+-- Получение и сортировка рельс вдоль карты
+local function getOrderedTracks()
+    local tracks = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (obj.Name:lower():find("rail") or obj.Name:lower():find("track")) then
+            table.insert(tracks, obj)
+        end
+    end
+    table.sort(tracks, function(a, b)
+        return a.Position.Z < b.Position.Z
+    end)
+    return tracks
+end
+
+-- Сбор прогрузившихся облигаций
+local function checkAndGrabBonds()
+    local root = getRoot()
+    if not root then return end
+
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        local name = obj.Name:lower()
+        if name:find("bond") or name:find("облигац") or name:find("ticket") then
+            local prompt = obj:FindFirstChildOfClass("ProximityPrompt") or (obj:IsA("ProximityPrompt") and obj)
+            local targetPart = obj:IsA("BasePart") and obj or (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart"))) or (prompt and prompt.Parent)
+
+            if prompt and targetPart and targetPart:IsA("BasePart") then
+                local dist = (root.Position - targetPart.Position).Magnitude
+                if dist < 150 then
+                    local origCFrame = root.CFrame
+                    root.CFrame = targetPart.CFrame * CFrame.new(0, 2, 0)
+                    task.wait(0.12)
+                    if fireproximityprompt then fireproximityprompt(prompt) end
+                    task.wait(0.12)
+                    root.CFrame = origCFrame
+                end
+            end
+        end
+    end
+end
+
+-- Авто-нажатие кнопки рестарта после смерти
+local function autoVoteRestart()
+    local pGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if pGui then
+        for _, btn in pairs(pGui:GetDescendants()) do
+            if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                local t = (btn:IsA("TextButton") and btn.Text:lower()) or btn.Name:lower()
+                if t:find("replay") or t:find("restart") or t:find("again") or t:find("заново") or t:find("голосовать") then
+                    for _, event in pairs({"MouseButton1Click", "Activated"}) do
+                        if getconnections then
+                            for _, conn in pairs(getconnections(btn[event])) do conn:Fire() end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Главный поток
+task.spawn(function()
+    print("[ZENITH]: Авто-фарм облигаций запущен!")
+
+    while _G.FarmActive do
+        local root = getRoot()
+        local hum = getHumanoid()
+
+        if root and hum and hum.Health > 0 then
+            disableCollision()
+            local tracks = getOrderedTracks()
+
+            if #tracks > 0 then
+                for _, track in ipairs(tracks) do
+                    if not _G.FarmActive or hum.Health <= 0 then break end
+                    disableCollision()
+
+                    root.CFrame = track.CFrame * CFrame.new(0, _G.FlyHeight, 0)
+                    checkAndGrabBonds()
+                    task.wait(0.04)
+                end
+
+                -- Смерть в конце пути
+                if hum.Health > 0 then
+                    hum.Health = 0
+                end
+            end
+        end
+
+        autoVoteRestart()
+        task.wait(1.5)
+    end
+end)
