@@ -1,5 +1,5 @@
 -- ==========================================
--- ZENITH-DEADRAILS: AUTO-FARM BONDS
+-- ZENITH-DEADRAILS: INFINITE AUTO-FARM BONDS
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -8,9 +8,8 @@ local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 _G.FarmActive = true
-_G.FlyHeight = 50 -- Высота полёта над рельсами
+_G.FlyHeight = 50
 
--- Anti-AFK
 LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
     task.wait(1)
@@ -27,16 +26,16 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
--- Отключение коллизии (Noclip)
 local function disableCollision()
     if LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
         end
     end
 end
 
--- Получение и сортировка рельс вдоль карты
 local function getOrderedTracks()
     local tracks = {}
     for _, obj in pairs(Workspace:GetDescendants()) do
@@ -50,7 +49,6 @@ local function getOrderedTracks()
     return tracks
 end
 
--- Сбор прогрузившихся облигаций
 local function checkAndGrabBonds()
     local root = getRoot()
     if not root then return end
@@ -76,29 +74,7 @@ local function checkAndGrabBonds()
     end
 end
 
--- Авто-нажатие кнопки рестарта после смерти
-local function autoVoteRestart()
-    local pGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    if pGui then
-        for _, btn in pairs(pGui:GetDescendants()) do
-            if btn:IsA("TextButton") or btn:IsA("ImageButton") then
-                local t = (btn:IsA("TextButton") and btn.Text:lower()) or btn.Name:lower()
-                if t:find("replay") or t:find("restart") or t:find("again") or t:find("заново") or t:find("голосовать") then
-                    for _, event in pairs({"MouseButton1Click", "Activated"}) do
-                        if getconnections then
-                            for _, conn in pairs(getconnections(btn[event])) do conn:Fire() end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
--- Главный поток
 task.spawn(function()
-    print("[ZENITH]: Авто-фарм облигаций запущен!")
-
     while _G.FarmActive do
         local root = getRoot()
         local hum = getHumanoid()
@@ -107,24 +83,17 @@ task.spawn(function()
             disableCollision()
             local tracks = getOrderedTracks()
 
-            if #tracks > 0 then
-                for _, track in ipairs(tracks) do
-                    if not _G.FarmActive or hum.Health <= 0 then break end
-                    disableCollision()
-
-                    root.CFrame = track.CFrame * CFrame.new(0, _G.FlyHeight, 0)
-                    checkAndGrabBonds()
-                    task.wait(0.04)
-                end
-
-                -- Смерть в конце пути
-                if hum.Health > 0 then
-                    hum.Health = 0
-                end
+            for _, track in ipairs(tracks) do
+                if not _G.FarmActive or hum.Health <= 0 then break end
+                
+                disableCollision()
+                root.CFrame = track.CFrame * CFrame.new(0, _G.FlyHeight, 0)
+                
+                checkAndGrabBonds()
+                task.wait(0.04)
             end
         end
 
-        autoVoteRestart()
-        task.wait(1.5)
+        task.wait(0.5)
     end
 end)
